@@ -1,0 +1,4 @@
+{"essay_id": "E001", "total_time_sec": 780, "preparation_time_sec": 65, "insertions": 418, "deletions": 47, "replacements": 12, "pauses_ms": [420, 510, 2300, 800, 3400, 650, 900]}
+{"essay_id": "E002", "total_time_sec": 310, "preparation_time_sec": 12, "insertions": 190, "deletions": 8, "replacements": 1, "pauses_ms": [260, 310, 450, 700, 500]}
+{"essay_id": "E003", "total_time_sec": 850, "preparation_time_sec": 88, "insertions": 382, "deletions": 61, "replacements": 18, "pauses_ms": [600, 1200, 3300, 950, 4100, 780]}
+{"essay_id": "E004", "total_time_sec": 185, "preparation_time_sec": 5, "insertions": 118, "deletions": 2, "replacements": 0, "pauses_ms": [180, 220, 350, 420]}

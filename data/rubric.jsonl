@@ -1,0 +1,12 @@
+{
+  "language": {
+    "1": "Frequent grammatical errors and limited vocabulary make meaning difficult to follow.",
+    "3": "Generally clear language with some errors and adequate sentence variety.",
+    "5": "Precise vocabulary, varied sentence structures, and consistently controlled grammar."
+  },
+  "argumentation": {
+    "1": "A claim is missing or unsupported; ideas are repetitive or unrelated.",
+    "3": "A clear claim has at least one reason and some relevant evidence, but development is uneven.",
+    "5": "A focused claim is supported by multiple reasons, concrete evidence, counterargument, and conclusion."
+  }
+}
