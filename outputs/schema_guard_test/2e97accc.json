@@ -1,0 +1,241 @@
+{
+  "prompt": "Should schools limit students' use of social media?",
+  "essay": "Social media is useful for communication, but schools should teach students to use it responsibly. First, unlimited use can distract students during lessons. For example, notifications interrupt concentration and reduce study time. Second, online discussion can support group projects when teachers provide clear rules. Therefore, schools should limit social media in class while allowing supervised educational use.",
+  "run_id": "2e97accc",
+  "stage": "completed",
+  "plan": [
+    {
+      "tool": "evidence_locator",
+      "reason": "测试单步 AI Plan 格式"
+    },
+    {
+      "tool": "rubric_lookup",
+      "reason": "Executor guardrail：评分前必须读取 Rubric"
+    }
+  ],
+  "artifacts": {
+    "evidence_locator": {
+      "sentence_evidence": [
+        {
+          "sentence_id": 1,
+          "labels": [
+            "claim"
+          ],
+          "text": "Social media is useful for communication, but schools should teach students to use it responsibly."
+        },
+        {
+          "sentence_id": 2,
+          "labels": [],
+          "text": "First, unlimited use can distract students during lessons."
+        },
+        {
+          "sentence_id": 3,
+          "labels": [
+            "example"
+          ],
+          "text": "For example, notifications interrupt concentration and reduce study time."
+        },
+        {
+          "sentence_id": 4,
+          "labels": [],
+          "text": "Second, online discussion can support group projects when teachers provide clear rules."
+        },
+        {
+          "sentence_id": 5,
+          "labels": [
+            "claim",
+            "conclusion"
+          ],
+          "text": "Therefore, schools should limit social media in class while allowing supervised educational use."
+        }
+      ]
+    },
+    "rubric_lookup": {
+      "language": {
+        "1": "Frequent grammatical errors and limited vocabulary make meaning difficult to follow.",
+        "3": "Generally clear language with some errors and adequate sentence variety.",
+        "5": "Precise vocabulary, varied sentence structures, and consistently controlled grammar."
+      },
+      "argumentation": {
+        "1": "A claim is missing or unsupported; ideas are repetitive or unrelated.",
+        "3": "A clear claim has at least one reason and some relevant evidence, but development is uneven.",
+        "5": "A focused claim is supported by multiple reasons, concrete evidence, counterargument, and conclusion."
+      }
+    }
+  },
+  "report": {
+    "summary": "立场可识别，但论证需要更具体的证据与解释。",
+    "scores": {
+      "language": {
+        "score": 2.8,
+        "reason": "表达基本可理解，仍有语法和衔接问题。",
+        "evidence_ids": [
+          1
+        ]
+      },
+      "argumentation": {
+        "score": 2.4,
+        "reason": "有主张，但理由与例证展开不足。",
+        "evidence_ids": [
+          1,
+          2
+        ]
+      }
+    },
+    "priorities": [
+      {
+        "issue": "论证展开不足",
+        "evidence_id": 2,
+        "action": "在该理由后补充一个具体例子，并解释例子如何支持主张。",
+        "example": "For example, ... This shows that ..."
+      }
+    ],
+    "revision_plan": [
+      "补充一个具体例子",
+      "解释例子与主张的关系",
+      "检查句间衔接"
+    ],
+    "highlights": [
+      {
+        "sentence_id": 2,
+        "label": "needs_evidence",
+        "reason": "理由后缺少证据"
+      }
+    ],
+    "model_backend": "classroom-fallback-rules (NOT AI)",
+    "degraded": true
+  },
+  "trace": [
+    {
+      "time": "20:09:17",
+      "event": "llm_started",
+      "stage": "planning",
+      "attempt": 1,
+      "backend": "malformed-model-for-test"
+    },
+    {
+      "time": "20:09:17",
+      "event": "llm_succeeded",
+      "stage": "planning",
+      "attempt": 1,
+      "backend": "malformed-model-for-test"
+    },
+    {
+      "time": "20:09:17",
+      "event": "plan_created",
+      "plan": [
+        {
+          "tool": "evidence_locator",
+          "reason": "测试单步 AI Plan 格式"
+        },
+        {
+          "tool": "rubric_lookup",
+          "reason": "Executor guardrail：评分前必须读取 Rubric"
+        }
+      ]
+    },
+    {
+      "time": "20:09:17",
+      "event": "checkpoint_saved",
+      "stage": "planned",
+      "path": "d:\\CodeData\\Program Coding\\Project\\Writing_Coach_Agent\\outputs\\schema_guard_test\\2e97accc.json"
+    },
+    {
+      "time": "20:09:17",
+      "event": "tool_started",
+      "step": 1,
+      "tool": "evidence_locator"
+    },
+    {
+      "time": "20:09:17",
+      "event": "tool_succeeded",
+      "step": 1,
+      "tool": "evidence_locator"
+    },
+    {
+      "time": "20:09:17",
+      "event": "checkpoint_saved",
+      "stage": "planned",
+      "path": "d:\\CodeData\\Program Coding\\Project\\Writing_Coach_Agent\\outputs\\schema_guard_test\\2e97accc.json"
+    },
+    {
+      "time": "20:09:17",
+      "event": "tool_started",
+      "step": 2,
+      "tool": "rubric_lookup"
+    },
+    {
+      "time": "20:09:17",
+      "event": "tool_succeeded",
+      "step": 2,
+      "tool": "rubric_lookup"
+    },
+    {
+      "time": "20:09:17",
+      "event": "checkpoint_saved",
+      "stage": "planned",
+      "path": "d:\\CodeData\\Program Coding\\Project\\Writing_Coach_Agent\\outputs\\schema_guard_test\\2e97accc.json"
+    },
+    {
+      "time": "20:09:17",
+      "event": "checkpoint_saved",
+      "stage": "tools_completed",
+      "path": "d:\\CodeData\\Program Coding\\Project\\Writing_Coach_Agent\\outputs\\schema_guard_test\\2e97accc.json"
+    },
+    {
+      "time": "20:09:17",
+      "event": "llm_started",
+      "stage": "coaching",
+      "attempt": 1,
+      "backend": "malformed-model-for-test"
+    },
+    {
+      "time": "20:09:17",
+      "event": "llm_succeeded",
+      "stage": "coaching",
+      "attempt": 1,
+      "backend": "malformed-model-for-test"
+    },
+    {
+      "time": "20:09:17",
+      "event": "schema_validation_failed",
+      "stage": "coaching",
+      "error": "ValueError: 报告缺少 scores 对象",
+      "raw_output": {
+        "summary": "故意缺少 scores 的模型输出"
+      }
+    },
+    {
+      "time": "20:09:17",
+      "event": "llm_started",
+      "stage": "reflection",
+      "attempt": 1,
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "time": "20:09:17",
+      "event": "llm_succeeded",
+      "stage": "reflection",
+      "attempt": 1,
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "time": "20:09:17",
+      "event": "reflection_completed",
+      "decision": "accept",
+      "reason": "字段完整，建议包含证据编号与可执行动作。",
+      "repair": ""
+    },
+    {
+      "time": "20:09:17",
+      "event": "run_finished",
+      "success": true
+    },
+    {
+      "time": "20:09:17",
+      "event": "checkpoint_saved",
+      "stage": "completed",
+      "path": "d:\\CodeData\\Program Coding\\Project\\Writing_Coach_Agent\\outputs\\schema_guard_test\\2e97accc.json"
+    }
+  ]
+}

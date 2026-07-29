@@ -1,0 +1,216 @@
+{
+  "round_id": 1,
+  "prompt": "Should students receive cash rewards for good grades?",
+  "essay": "Students should get money for grades. Money is useful. Good grades are good. Parents can give money and students will happy. This is my opinion.",
+  "run_id": "3785b553",
+  "facts": {
+    "text_analysis": {
+      "word_count": 25,
+      "sentences": [
+        {
+          "id": 1,
+          "text": "Students should get money for grades."
+        },
+        {
+          "id": 2,
+          "text": "Money is useful."
+        },
+        {
+          "id": 3,
+          "text": "Good grades are good."
+        },
+        {
+          "id": 4,
+          "text": "Parents can give money and students will happy."
+        },
+        {
+          "id": 5,
+          "text": "This is my opinion."
+        }
+      ]
+    },
+    "rubric_lookup": {
+      "language": {
+        "1": "Frequent grammatical errors and limited vocabulary make meaning difficult to follow.",
+        "3": "Generally clear language with some errors and adequate sentence variety.",
+        "5": "Precise vocabulary, varied sentence structures, and consistently controlled grammar."
+      },
+      "argumentation": {
+        "1": "A claim is missing or unsupported; ideas are repetitive or unrelated.",
+        "3": "A clear claim has at least one reason and some relevant evidence, but development is uneven.",
+        "5": "A focused claim is supported by multiple reasons, concrete evidence, counterargument, and conclusion."
+      }
+    },
+    "evidence_locator": [
+      {
+        "sentence_id": 1,
+        "text": "Students should get money for grades.",
+        "labels": [
+          "claim"
+        ]
+      },
+      {
+        "sentence_id": 2,
+        "text": "Money is useful.",
+        "labels": []
+      },
+      {
+        "sentence_id": 3,
+        "text": "Good grades are good.",
+        "labels": []
+      },
+      {
+        "sentence_id": 4,
+        "text": "Parents can give money and students will happy.",
+        "labels": []
+      },
+      {
+        "sentence_id": 5,
+        "text": "This is my opinion.",
+        "labels": []
+      }
+    ]
+  },
+  "report": {
+    "summary": "立场明确，但理由、例证与反方回应不足。",
+    "scores": {
+      "language": {
+        "score": 2.5,
+        "reason": "按清晰度、句式与衔接综合判断。",
+        "evidence_ids": [
+          1
+        ]
+      },
+      "argumentation": {
+        "score": 2.3,
+        "reason": "按主张、理由、例证与回应综合判断。",
+        "evidence_ids": [
+          1
+        ]
+      }
+    },
+    "priorities": [
+      {
+        "issue": "补强证据链",
+        "evidence_id": 1,
+        "action": "补充具体例子，并解释它如何支持主张。",
+        "example": "For example, ... This shows ..."
+      }
+    ],
+    "revision_plan": [
+      "补具体例子",
+      "解释例子",
+      "回应一个反方观点"
+    ],
+    "highlights": [
+      {
+        "sentence_id": 1,
+        "label": "needs_evidence",
+        "reason": "主张后需要证据"
+      }
+    ],
+    "plan": [
+      {
+        "tool": "text_analysis",
+        "reason": "读取带句号的文本事实"
+      },
+      {
+        "tool": "rubric_lookup",
+        "reason": "读取当前评分量表"
+      },
+      {
+        "tool": "evidence_locator",
+        "reason": "把判断绑定到原文句子"
+      }
+    ],
+    "model_backend": "classroom-fallback-rules (NOT AI)",
+    "degraded": true
+  },
+  "trace": [
+    {
+      "event": "llm_started",
+      "stage": "planning",
+      "attempt": 1,
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "event": "llm_succeeded",
+      "stage": "planning",
+      "attempt": 1,
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "event": "plan_created",
+      "goal": "按量表和原文证据完成 Writing Coach 诊断",
+      "plan": [
+        {
+          "tool": "text_analysis",
+          "reason": "读取带句号的文本事实"
+        },
+        {
+          "tool": "rubric_lookup",
+          "reason": "读取当前评分量表"
+        },
+        {
+          "tool": "evidence_locator",
+          "reason": "把判断绑定到原文句子"
+        }
+      ]
+    },
+    {
+      "event": "tool_started",
+      "tool": "text_analysis",
+      "reason": "读取带句号的文本事实"
+    },
+    {
+      "event": "tool_succeeded",
+      "tool": "text_analysis"
+    },
+    {
+      "event": "tool_started",
+      "tool": "rubric_lookup",
+      "reason": "读取当前评分量表"
+    },
+    {
+      "event": "tool_succeeded",
+      "tool": "rubric_lookup"
+    },
+    {
+      "event": "tool_started",
+      "tool": "evidence_locator",
+      "reason": "把判断绑定到原文句子"
+    },
+    {
+      "event": "tool_succeeded",
+      "tool": "evidence_locator"
+    },
+    {
+      "event": "tools_completed",
+      "tools": [
+        "text_analysis",
+        "rubric_lookup",
+        "evidence_locator"
+      ]
+    },
+    {
+      "event": "llm_started",
+      "stage": "coaching",
+      "attempt": 1,
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "event": "llm_succeeded",
+      "stage": "coaching",
+      "attempt": 1,
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "event": "agent_report_completed",
+      "backend": "classroom-fallback-rules (NOT AI)"
+    },
+    {
+      "event": "checkpoint_saved",
+      "run_id": "3785b553"
+    }
+  ]
+}
