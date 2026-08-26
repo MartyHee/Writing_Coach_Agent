@@ -4,8 +4,10 @@ import unittest
 from pathlib import Path
 
 from writing_coach_agent import WritingCoachAgent
+from writing_coach_agent.checkpoints import CheckpointStore
+from writing_coach_agent.retrieval import DualRetriever, RankedCandidate
 from writing_coach_agent.rendering import render_highlighted_essay
-from writing_coach_agent.tools import inspect_text, locate_evidence
+from writing_coach_agent.tools import default_tools, inspect_text, locate_evidence
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,6 +40,26 @@ class ScriptedJSONBackend:
         raise ValueError(task)
 
 
+class StaticRetriever:
+    def __init__(self, name, order):
+        self.name = name
+        self.order = order
+
+    def rank(self, query, candidates):
+        return [RankedCandidate(index, 1.0 / rank, {self.name: 1.0 / rank}) for rank, index in enumerate(self.order, 1)]
+
+
+class ReplanningBackend(ScriptedJSONBackend):
+    def __init__(self):
+        self.planning_calls = 0
+
+    def generate_json(self, system, user, schema):
+        if schema["task"] == "plan":
+            self.planning_calls += 1
+            return {"goal": "recover", "steps": [{"tool": "unstable_tool", "reason": "try evidence tool"}]}
+        return super().generate_json(system, user, schema)
+
+
 class WritingCoachAgentTests(unittest.TestCase):
     def test_tools_return_grounded_sentence_ids(self):
         essay = "Students should read because books build knowledge. For example, biographies teach history."
@@ -60,6 +82,39 @@ class WritingCoachAgentTests(unittest.TestCase):
             self.assertTrue((Path(directory) / f"{run.run_id}.json").is_file())
             saved = json.loads((Path(directory) / f"{run.run_id}.json").read_text(encoding="utf-8"))
             self.assertEqual(saved["run_id"], run.run_id)
+            self.assertIn("tool_results", saved["memory"]["working"])
+            self.assertTrue(saved["memory"]["episodic"])
+            restored = CheckpointStore(Path(directory)).load(run.run_id)
+            self.assertEqual(restored.memory.working, run.memory.working)
+
+    def test_dual_retriever_fuses_both_rankings(self):
+        retriever = DualRetriever(
+            lexical=StaticRetriever("tfidf", [0, 1, 2]),
+            semantic=StaticRetriever("minilm", [2, 1, 0]),
+            rrf_k=10,
+        )
+        result = retriever.rank("query", ["a", "b", "c"])
+        self.assertEqual({item.index for item in result}, {0, 1, 2})
+        self.assertEqual(set(result[0].backend_scores), {"tfidf", "minilm"})
+
+    def test_tool_failure_triggers_memory_aware_replan(self):
+        backend = ReplanningBackend()
+
+        def unstable_tool(essay, rubric_path):
+            raise ValueError("evidence index unavailable")
+
+        tools = default_tools()
+        tools["unstable_tool"] = unstable_tool
+        coach = WritingCoachAgent(
+            backend=backend,
+            rubric_path=ROOT / "data" / "rubric.jsonl",
+            tools=tools,
+            max_replans=1,
+        )
+        run = coach.run("Should students read?", "Students should read. Books build knowledge.")
+        self.assertEqual(backend.planning_calls, 2)
+        self.assertTrue(any(event["event"] == "replan_created" for event in run.trace))
+        self.assertEqual(run.memory.working["tool_failures"][0]["tool"], "unstable_tool")
 
     def test_renderer_escapes_student_html(self):
         report = {"highlights": [{"sentence_id": 1, "label": "language", "reason": "check"}]}

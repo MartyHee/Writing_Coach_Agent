@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 from ..agent import WritingCoachAgent
 from ..backends import HuggingFaceJSONBackend
 from ..config import Settings
+from ..tools import production_tools
 
 
 def build_agent(settings: Settings) -> WritingCoachAgent:
@@ -11,6 +12,7 @@ def build_agent(settings: Settings) -> WritingCoachAgent:
         backend=HuggingFaceJSONBackend(settings.model_id),
         rubric_path=settings.rubric_path,
         checkpoint_dir=settings.checkpoint_dir,
+        tools=production_tools(),
     )
 
 

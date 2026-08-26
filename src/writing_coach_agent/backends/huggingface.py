@@ -95,16 +95,21 @@ class HuggingFaceJSONBackend:
     def _evidence_id(self, user: str) -> int:
         try:
             payload = json.loads(user)
-            rows = payload.get("tool_results", {}).get("locate_evidence", {}).get("sentence_evidence", [])
+            results = payload.get("tool_results", {})
+            evidence = results.get("retrieve_evidence") or results.get("locate_evidence") or {}
+            rows = evidence.get("sentence_evidence", [])
             choices = [int(row["sentence_id"]) for row in rows][:9]
         except Exception:
             choices = []
         return self._next_token_choice(user, "Choose the sentence that most needs evidence or explanation.", choices) if choices else 1
 
     def _plan(self, user: str) -> Dict[str, Any]:
-        options = {1: "inspect_text", 2: "load_rubric", 3: "locate_evidence"}
+        options = {1: "inspect_text", 2: "load_rubric", 3: "retrieve_evidence", 4: "locate_evidence"}
         selected = options[self._next_token_choice(
-            user, "Choose the most useful first tool: 1 inspect_text, 2 load_rubric, 3 locate_evidence.", list(options)
+            user,
+            "Choose the most useful first tool: 1 inspect_text, 2 load_rubric, "
+            "3 retrieve_evidence, 4 locate_evidence.",
+            list(options),
         )]
         return {
             "goal": "model-selected grounded diagnosis",

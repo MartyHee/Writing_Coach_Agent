@@ -6,6 +6,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .memory import AgentMemory
+
 
 @dataclass
 class AgentRun:
@@ -16,6 +18,7 @@ class AgentRun:
     artifacts: Dict[str, Any] = field(default_factory=dict)
     trace: List[Dict[str, Any]] = field(default_factory=list)
     report: Optional[Dict[str, Any]] = None
+    memory: AgentMemory = field(default_factory=AgentMemory)
 
     def log(self, event: str, **details: Any) -> None:
         self.trace.append({"time": time.strftime("%H:%M:%S"), "event": event, **details})

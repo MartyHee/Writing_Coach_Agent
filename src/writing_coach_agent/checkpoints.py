@@ -5,6 +5,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from .memory import AgentMemory
 from .models import AgentRun
 
 
@@ -17,3 +18,9 @@ class CheckpointStore:
         target = self.directory / f"{run.run_id}.json"
         target.write_text(json.dumps(asdict(run), ensure_ascii=False, indent=2), encoding="utf-8")
         return target
+
+    def load(self, run_id: str) -> AgentRun:
+        source = self.directory / f"{run_id}.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        payload["memory"] = AgentMemory(**payload.get("memory", {}))
+        return AgentRun(**payload)

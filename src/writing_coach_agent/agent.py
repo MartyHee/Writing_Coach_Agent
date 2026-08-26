@@ -11,7 +11,8 @@ from .checkpoints import CheckpointStore
 from .contracts import PLAN_SCHEMA, REFLECT_SCHEMA, REPORT_SCHEMA
 from .models import AgentRun
 from .prompts import PLANNER_SYSTEM, REFLECTOR_SYSTEM, REPORT_SYSTEM, planner_input
-from .tools import TOOLS, Tool, split_sentences
+from .reflection import ExecutionReflector
+from .tools import TOOLS, Tool, ToolRegistry, split_sentences
 
 
 class WritingCoachAgent:
@@ -24,40 +25,76 @@ class WritingCoachAgent:
         checkpoint_dir: Optional[Path] = None,
         max_repairs: int = 1,
         max_retries: int = 2,
+        max_tool_retries: int = 1,
+        max_replans: int = 1,
+        max_tool_calls: int = 10,
         tools: Optional[Dict[str, Tool]] = None,
+        execution_reflector: Optional[ExecutionReflector] = None,
     ) -> None:
         self.backend = backend
         self.rubric_path = rubric_path
         self.checkpoints = CheckpointStore(checkpoint_dir) if checkpoint_dir else None
         self.max_repairs = max_repairs
         self.max_retries = max_retries
+        self.max_tool_retries = max_tool_retries
+        self.max_replans = max_replans
+        self.max_tool_calls = max_tool_calls
         self.tools = tools or TOOLS
+        self.tool_registry = ToolRegistry(self.tools)
+        self.execution_reflector = execution_reflector or ExecutionReflector()
 
     def _save(self, run: AgentRun) -> None:
         if self.checkpoints:
             self.checkpoints.save(run)
             run.log("checkpoint_saved")
 
-    def _valid_plan(self, plan: Dict[str, Any]) -> List[Dict[str, str]]:
+    def _valid_plan(
+        self,
+        plan: Dict[str, Any],
+        excluded_tools: Optional[set[str]] = None,
+    ) -> List[Dict[str, str]]:
         valid = []
         seen = set()
+        excluded_tools = excluded_tools or set()
         for step in plan.get("steps", []):
             tool = step.get("tool")
-            if tool in self.tools and tool not in seen:
+            if tool in self.tools and tool not in seen and tool not in excluded_tools:
                 valid.append({"tool": tool, "reason": str(step.get("reason", ""))})
                 seen.add(tool)
-        if not valid:
-            raise ValueError("Planner 没有选择任何合法工具")
-        for required, reason in [
-            ("load_rubric", "Executor guardrail: scoring requires the rubric"),
-            ("locate_evidence", "Executor guardrail: feedback requires valid sentence evidence"),
-        ]:
+        required_tools = [("load_rubric", "Executor guardrail: scoring requires the rubric")]
+        evidence_tool = "retrieve_evidence" if "retrieve_evidence" in self.tools and "retrieve_evidence" not in excluded_tools else "locate_evidence"
+        required_tools.append((evidence_tool, "Executor guardrail: feedback requires valid sentence evidence"))
+        for required, reason in required_tools:
             if required not in seen:
                 if required not in self.tools:
                     raise ValueError(f"Executor 缺少必需工具: {required}")
                 valid.append({"tool": required, "reason": reason})
                 seen.add(required)
+        if not valid:
+            raise ValueError("Planner 没有选择任何合法工具")
         return valid
+
+    def _replan(
+        self,
+        run: AgentRun,
+        failed_tools: set[str],
+        replan_number: int,
+    ) -> List[Dict[str, str]]:
+        run.log("replan_started", replan=replan_number, failed_tools=sorted(failed_tools))
+        user = (
+            planner_input(run.prompt, run.essay, self.tool_registry.names)
+            + "\nPrevious execution failed. Do not select these tools: "
+            + json.dumps(sorted(failed_tools), ensure_ascii=False)
+            + "\nMemory: "
+            + json.dumps(run.memory.context(), ensure_ascii=False)
+        )
+        raw_plan = self._ask(run, "replanning", PLANNER_SYSTEM, user, PLAN_SCHEMA)
+        plan = self._valid_plan(raw_plan, excluded_tools=failed_tools)
+        run.plan.extend(plan)
+        run.memory.remember_plan(plan, reason=f"replan_{replan_number}")
+        run.log("replan_created", replan=replan_number, plan=plan)
+        self._save(run)
+        return plan
 
     def _ask(
         self,
@@ -105,22 +142,69 @@ class WritingCoachAgent:
             run,
             "planning",
             PLANNER_SYSTEM,
-            planner_input(prompt, essay, list(self.tools)),
+            planner_input(prompt, essay, self.tool_registry.names),
             PLAN_SCHEMA,
         )
         run.plan = self._valid_plan(raw_plan)
+        run.memory.remember_plan(run.plan)
         run.log("plan_created", plan=run.plan, backend=self.backend.name)
         self._save(run)
 
-        for step_number, step in enumerate(run.plan, 1):
+        pending = list(run.plan)
+        failed_tools: set[str] = set()
+        tool_calls = 0
+        replans = 0
+        while pending:
+            step = pending.pop(0)
             tool_name = step["tool"]
-            run.log("tool_started", step=step_number, tool=tool_name, reason=step["reason"])
-            run.artifacts[tool_name] = self.tools[tool_name](essay, self.rubric_path)
-            run.log("tool_succeeded", step=step_number, tool=tool_name)
-            self._save(run)
+            if tool_name in run.artifacts:
+                run.log("tool_skipped", tool=tool_name, reason="result already present in Memory")
+                continue
+            attempt = 0
+            while True:
+                attempt += 1
+                tool_calls += 1
+                if tool_calls > self.max_tool_calls:
+                    raise RuntimeError("达到最大工具调用次数")
+                run.log("tool_started", tool=tool_name, reason=step["reason"], attempt=attempt)
+                try:
+                    result = self.tool_registry.call(tool_name, essay, self.rubric_path)
+                    run.artifacts[tool_name] = result
+                    run.memory.remember_tool_result(tool_name, result)
+                    run.log("tool_succeeded", tool=tool_name, attempt=attempt)
+                    self._save(run)
+                    break
+                except Exception as exc:
+                    error = f"{type(exc).__name__}: {exc}"
+                    decision = self.execution_reflector.review_failure(
+                        tool_name, exc, attempt, self.max_tool_retries
+                    )
+                    run.memory.remember_failure(tool_name, error, decision.action)
+                    run.log(
+                        "tool_failed",
+                        tool=tool_name,
+                        attempt=attempt,
+                        error=error,
+                        decision=decision.action,
+                        decision_reason=decision.reason,
+                    )
+                    self._save(run)
+                    if decision.action == "retry":
+                        continue
+                    if decision.action == "replan" and replans < self.max_replans:
+                        failed_tools.add(tool_name)
+                        replans += 1
+                        pending = self._replan(run, failed_tools, replans) + pending
+                        break
+                    raise RuntimeError(f"工具执行失败且无法继续: {tool_name}: {error}") from exc
 
         context = json.dumps(
-            {"prompt": prompt, "essay": essay, "tool_results": run.artifacts},
+            {
+                "prompt": prompt,
+                "essay": essay,
+                "tool_results": run.artifacts,
+                "memory": run.memory.context(),
+            },
             ensure_ascii=False,
         )
         repair = ""
@@ -149,6 +233,7 @@ class WritingCoachAgent:
                 REFLECT_SCHEMA,
             )
             run.log("reflection_completed", **reflection)
+            run.memory.remember("report_reflected", **reflection)
             if reflection.get("decision") == "accept" or attempt >= self.max_repairs:
                 report["model_backend"] = self.backend.name
                 report["run_id"] = run.run_id
