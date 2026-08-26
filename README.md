@@ -99,7 +99,7 @@ python scripts/run_app.py
 
 浏览器访问 `http://127.0.0.1:7860`。首次诊断会下载并加载模型；模型下载或推理失败时直接返回错误，不会自动降级或使用规则结果。
 
-![](D:\CodeData\Program Coding\Project\Writing_Coach_Agent\pic\wcs.png)
+![](.\pic\wcs.png)
 
 
 
