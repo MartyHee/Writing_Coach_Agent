@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .backends.base import JSONBackend
+from .backends.base import FallbackCapableJSONBackend, JSONBackend
 from .checkpoints import CheckpointStore
 from .contracts import PLAN_SCHEMA, REFLECT_SCHEMA, REPORT_SCHEMA
 from .models import AgentRun
@@ -43,6 +43,15 @@ class WritingCoachAgent:
         self.tool_registry = ToolRegistry(self.tools)
         self.execution_reflector = execution_reflector or ExecutionReflector()
 
+    def _activate_fallback(self, run: AgentRun, reason: str) -> bool:
+        if not isinstance(self.backend, FallbackCapableJSONBackend) or self.backend.degraded:
+            return False
+        self.backend.activate_fallback(reason)
+        run.memory.remember("fallback_activated", reason=reason, backend=self.backend.name)
+        run.log("fallback_activated", reason=reason, backend=self.backend.name)
+        self._save(run)
+        return True
+
     def _save(self, run: AgentRun) -> None:
         if self.checkpoints:
             self.checkpoints.save(run)
@@ -52,6 +61,7 @@ class WritingCoachAgent:
         self,
         plan: Dict[str, Any],
         excluded_tools: Optional[set[str]] = None,
+        allow_guardrail_only: bool = False,
     ) -> List[Dict[str, str]]:
         valid = []
         seen = set()
@@ -61,6 +71,8 @@ class WritingCoachAgent:
             if tool in self.tools and tool not in seen and tool not in excluded_tools:
                 valid.append({"tool": tool, "reason": str(step.get("reason", ""))})
                 seen.add(tool)
+        if not valid and not allow_guardrail_only:
+            raise ValueError("Planner 没有选择任何合法工具")
         required_tools = [("load_rubric", "Executor guardrail: scoring requires the rubric")]
         evidence_tool = "retrieve_evidence" if "retrieve_evidence" in self.tools and "retrieve_evidence" not in excluded_tools else "locate_evidence"
         required_tools.append((evidence_tool, "Executor guardrail: feedback requires valid sentence evidence"))
@@ -89,7 +101,7 @@ class WritingCoachAgent:
             + json.dumps(run.memory.context(), ensure_ascii=False)
         )
         raw_plan = self._ask(run, "replanning", PLANNER_SYSTEM, user, PLAN_SCHEMA)
-        plan = self._valid_plan(raw_plan, excluded_tools=failed_tools)
+        plan = self._valid_plan(raw_plan, excluded_tools=failed_tools, allow_guardrail_only=True)
         run.plan.extend(plan)
         run.memory.remember_plan(plan, reason=f"replan_{replan_number}")
         run.log("replan_created", replan=replan_number, plan=plan)
@@ -114,6 +126,12 @@ class WritingCoachAgent:
                 run.log("llm_failed", stage=stage, attempt=attempt, error=f"{type(exc).__name__}: {exc}")
                 self._save(run)
                 if attempt > self.max_retries:
+                    reason = f"{stage} retries exhausted: {type(exc).__name__}: {exc}"
+                    if self._activate_fallback(run, reason):
+                        run.log("llm_started", stage=stage, attempt="fallback", backend=self.backend.name)
+                        result = self.backend.generate_json(system, user, schema)
+                        run.log("llm_succeeded", stage=stage, attempt="fallback", backend=self.backend.name)
+                        return result
                     raise
                 delay = min(0.25 * 2 ** (attempt - 1), 1.0)
                 run.log("retry_scheduled", stage=stage, delay_seconds=delay)
@@ -137,6 +155,8 @@ class WritingCoachAgent:
             raise FileNotFoundError(f"评分量表不存在: {self.rubric_path}")
 
         run = AgentRun(prompt=prompt, essay=essay)
+        if isinstance(self.backend, FallbackCapableJSONBackend):
+            self.backend.reset()
         run.log("run_started", backend=self.backend.name)
         raw_plan = self._ask(
             run,
@@ -145,7 +165,16 @@ class WritingCoachAgent:
             planner_input(prompt, essay, self.tool_registry.names),
             PLAN_SCHEMA,
         )
-        run.plan = self._valid_plan(raw_plan)
+        try:
+            run.plan = self._valid_plan(raw_plan)
+        except (KeyError, TypeError, ValueError) as exc:
+            reason = f"plan schema validation failed: {type(exc).__name__}: {exc}"
+            run.log("schema_validation_failed", stage="planning", error=reason)
+            if not self._activate_fallback(run, reason):
+                raise
+            fallback_plan = self._ask(run, "planning_fallback", PLANNER_SYSTEM, planner_input(prompt, essay, self.tool_registry.names), PLAN_SCHEMA)
+            run.plan = self._valid_plan(fallback_plan)
+            run.log("plan_schema_fallback_succeeded", backend=self.backend.name)
         run.memory.remember_plan(run.plan)
         run.log("plan_created", plan=run.plan, backend=self.backend.name)
         self._save(run)
@@ -222,9 +251,21 @@ class WritingCoachAgent:
             except Exception as exc:
                 run.log("schema_validation_failed", error=str(exc))
                 if attempt >= self.max_repairs:
-                    raise
-                repair = str(exc)
-                continue
+                    reason = f"schema validation failed: report missing or invalid fields: {type(exc).__name__}: {exc}"
+                    if not self._activate_fallback(run, reason):
+                        raise
+                    report = self._ask(
+                        run,
+                        "scoring_and_feedback_fallback",
+                        REPORT_SYSTEM,
+                        context,
+                        REPORT_SCHEMA,
+                    )
+                    self._validate_report(report, len(split_sentences(essay)))
+                    run.log("schema_fallback_succeeded", backend=self.backend.name)
+                else:
+                    repair = str(exc)
+                    continue
             reflection = self._ask(
                 run,
                 "reflection",
@@ -236,6 +277,8 @@ class WritingCoachAgent:
             run.memory.remember("report_reflected", **reflection)
             if reflection.get("decision") == "accept" or attempt >= self.max_repairs:
                 report["model_backend"] = self.backend.name
+                report["degraded"] = bool(getattr(self.backend, "degraded", False))
+                report["fallback_reason"] = getattr(self.backend, "fallback_reason", None)
                 report["run_id"] = run.run_id
                 run.report = report
                 break

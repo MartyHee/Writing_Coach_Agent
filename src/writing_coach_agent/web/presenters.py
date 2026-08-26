@@ -7,7 +7,11 @@ from typing import Any, Dict
 def score_cards(report: Dict[str, Any]) -> str:
     language = report["scores"]["language"]
     argument = report["scores"]["argumentation"]
-    badge = "<span class='mode ai'>本地开源模型</span>"
+    badge = (
+        "<span class='mode degraded'>Fallback 规则后端</span>"
+        if report.get("degraded")
+        else "<span class='mode ai'>本地开源模型</span>"
+    )
     return f"""
     <div class="score-wrap">
       <div class="score-card"><span>Language</span><strong>{float(language['score']):.1f}</strong><em>/ 5</em><p>{language['rationale']}</p></div>

@@ -2,14 +2,16 @@
 from typing import Any, Dict, Optional
 
 from ..agent import WritingCoachAgent
-from ..backends import HuggingFaceJSONBackend
+from ..backends import FallbackJSONBackend, HuggingFaceJSONBackend, RuleBasedJSONBackend
 from ..config import Settings
 from ..tools import production_tools
 
 
 def build_agent(settings: Settings) -> WritingCoachAgent:
+    primary = HuggingFaceJSONBackend(settings.model_id)
+    backend = FallbackJSONBackend(primary, RuleBasedJSONBackend()) if settings.enable_fallback else primary
     return WritingCoachAgent(
-        backend=HuggingFaceJSONBackend(settings.model_id),
+        backend=backend,
         rubric_path=settings.rubric_path,
         checkpoint_dir=settings.checkpoint_dir,
         tools=production_tools(),
@@ -29,8 +31,13 @@ def create_app(settings: Optional[Settings] = None, coach: Optional[WritingCoach
         essay: str
 
     @api.get("/health")
-    def health() -> Dict[str, str]:
-        return {"status": "ok", "backend": coach.backend.name}
+    def health() -> Dict[str, Any]:
+        return {
+            "status": "degraded" if getattr(coach.backend, "degraded", False) else "ok",
+            "backend": coach.backend.name,
+            "degraded": bool(getattr(coach.backend, "degraded", False)),
+            "fallback_reason": getattr(coach.backend, "fallback_reason", None),
+        }
 
     @api.post("/api/diagnose")
     def diagnose(request: DiagnoseRequest) -> Dict[str, Any]:

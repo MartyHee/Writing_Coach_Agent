@@ -14,7 +14,7 @@ CSS = """
 .score-wrap { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .score-card { padding:18px; border:1px solid #e8e7f8; border-radius:16px; background:linear-gradient(145deg,#fff,#faf9ff); }
 .score-card span { display:block;color:#64748b;font-weight:650; }.score-card strong {font-size:38px;color:#332879}.score-card em{color:#94a3b8;font-style:normal}.score-card p{font-size:13px;color:#526074;min-height:38px}
-.run-meta { margin:10px 2px; color:#64748b;font-size:12px }.mode{padding:4px 8px;border-radius:999px;margin-right:7px}.mode.ai{background:#dcfce7;color:#166534}
+.run-meta { margin:10px 2px; color:#64748b;font-size:12px }.mode{padding:4px 8px;border-radius:999px;margin-right:7px}.mode.ai{background:#dcfce7;color:#166534}.mode.degraded{background:#fef3c7;color:#92400e}
 .essay-paper { font-family:Georgia,serif;font-size:17px;line-height:2.2;color:#111827 !important;background:#fff;padding:24px;border-radius:16px;border:1px solid #e7eaf0;min-height:170px }
 .essay-paper > span:not(.sentence-mark),.feedback-panel,.feedback-panel * { color:#111827 !important; }
 .feedback-panel code { background:#f3f4f6 !important; color:#111827 !important; }

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from writing_coach_agent import WritingCoachAgent
+from writing_coach_agent import FallbackJSONBackend, RuleBasedJSONBackend, WritingCoachAgent
 from writing_coach_agent.checkpoints import CheckpointStore
 from writing_coach_agent.retrieval import DualRetriever, RankedCandidate
 from writing_coach_agent.rendering import render_highlighted_essay
@@ -57,6 +57,31 @@ class ReplanningBackend(ScriptedJSONBackend):
         if schema["task"] == "plan":
             self.planning_calls += 1
             return {"goal": "recover", "steps": [{"tool": "unstable_tool", "reason": "try evidence tool"}]}
+        return super().generate_json(system, user, schema)
+
+
+class FailingBackend:
+    name = "failing-primary"
+
+    def generate_json(self, system, user, schema):
+        raise ConnectionError("model service 503")
+
+
+class InvalidReportBackend(ScriptedJSONBackend):
+    name = "invalid-schema-primary"
+
+    def generate_json(self, system, user, schema):
+        if schema["task"] == "report":
+            return {"summary": "missing scores"}
+        return super().generate_json(system, user, schema)
+
+
+class InvalidPlanBackend(ScriptedJSONBackend):
+    name = "invalid-plan-primary"
+
+    def generate_json(self, system, user, schema):
+        if schema["task"] == "plan":
+            return {"goal": "missing steps"}
         return super().generate_json(system, user, schema)
 
 
@@ -115,6 +140,38 @@ class WritingCoachAgentTests(unittest.TestCase):
         self.assertEqual(backend.planning_calls, 2)
         self.assertTrue(any(event["event"] == "replan_created" for event in run.trace))
         self.assertEqual(run.memory.working["tool_failures"][0]["tool"], "unstable_tool")
+
+    def test_model_failures_activate_explicit_fallback(self):
+        backend = FallbackJSONBackend(FailingBackend(), RuleBasedJSONBackend())
+        coach = WritingCoachAgent(
+            backend=backend,
+            rubric_path=ROOT / "data" / "rubric.jsonl",
+            max_retries=1,
+        )
+        run = coach.run("Should students read?", "Students should read. Books build knowledge.")
+        self.assertTrue(run.report["degraded"])
+        self.assertIn("ConnectionError", run.report["fallback_reason"])
+        self.assertEqual(run.report["model_backend"], "rule-based-fallback (not AI)")
+        self.assertTrue(any(event["event"] == "fallback_activated" for event in run.trace))
+
+    def test_invalid_report_schema_activates_fallback(self):
+        backend = FallbackJSONBackend(InvalidReportBackend(), ScriptedJSONBackend())
+        coach = WritingCoachAgent(
+            backend=backend,
+            rubric_path=ROOT / "data" / "rubric.jsonl",
+            max_repairs=0,
+        )
+        run = coach.run("Should students read?", "Students should read. Books build knowledge.")
+        self.assertTrue(run.report["degraded"])
+        self.assertIn("missing", run.report["fallback_reason"])
+        self.assertTrue(any(event["event"] == "schema_fallback_succeeded" for event in run.trace))
+
+    def test_invalid_plan_schema_activates_fallback(self):
+        backend = FallbackJSONBackend(InvalidPlanBackend(), ScriptedJSONBackend())
+        coach = WritingCoachAgent(backend=backend, rubric_path=ROOT / "data" / "rubric.jsonl")
+        run = coach.run("Should students read?", "Students should read. Books build knowledge.")
+        self.assertTrue(run.report["degraded"])
+        self.assertTrue(any(event["event"] == "plan_schema_fallback_succeeded" for event in run.trace))
 
     def test_renderer_escapes_student_html(self):
         report = {"highlights": [{"sentence_id": 1, "label": "language", "reason": "check"}]}
