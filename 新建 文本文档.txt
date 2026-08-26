@@ -1,6 +1,0 @@
-conda activate writing-coach-agentset 
-WRITING_COACH_USE_LOCAL_MODEL=1
-set WRITING_COACH_MODEL=Qwen/Qwen2.5-0.5B-Instruct
-python app.py
-http://127.0.0.1:7860
-Students should receive cash rewards for good grades. Money can motivate students to study harder. For example, a student may spend more time reviewing lessons if good grades bring a reward. However, some people believe that students should study because they enjoy learning, not because of money. In my opinion, reasonable rewards can encourage students while parents still teach them the value of learning.

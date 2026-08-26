@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "writing-coach-agent"
+version = "0.1.0"
+description = "A local planner-executor-reflector agent for argumentative writing feedback."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "fastapi>=0.110,<1",
+    "gradio>=4.0,<6",
+    "pydantic>=2.0,<3",
+    "torch>=2.1,<2.6",
+    "transformers>=4.40,<5",
+    "typing-extensions>=4.7,<5",
+    "uvicorn>=0.27,<1",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.unittest]
+start-directory = "tests"
